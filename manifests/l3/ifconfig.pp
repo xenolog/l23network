@@ -90,6 +90,7 @@ define l23network::l3::ifconfig (
     $ifname_order_prefix = false,
     $check_by_ping   = 'gateway',
     $check_by_ping_timeout = 120,
+    #todo: label => "XXX", # -- "ip addr add..... label XXX"
 ){
   include ::l23network::params
 
@@ -103,6 +104,12 @@ define l23network::l3::ifconfig (
     'balance-alb'
   ]
 
+  # calculate effective_netmask
+  #todo: if ipaddr given in CIDR mode (A.B.C.D/E) -- ignore netmask and calculate effective_netmask from CIDR
+  $effective_netmask = $netmask
+  #todo: calculate CIDR netmask /XX
+
+  # setup configure method for inteface
   if $bond_master {
     $method = 'bondslave'
   } else {
@@ -226,7 +233,7 @@ define l23network::l3::ifconfig (
     content => template("l23network/ipconfig_${::osfamily}_${method}.erb"),
   }
 
-  notify {"ifconfig_${interface}": message=>"Interface:${interface} IP:${ipaddr}/${netmask}", withpath=>false} ->
+  notify {"ifconfig_${interface}": message=>"Interface:${interface} IP:${ipaddr}/${effective_netmask}", withpath=>false} ->
   l3_if_downup {"$interface":
     check_by_ping => $check_by_ping,
     check_by_ping_timeout => $check_by_ping_timeout,
