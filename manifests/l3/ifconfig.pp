@@ -23,7 +23,7 @@
 #
 # [*bond_mode*]
 #   For interfaces bondNN this option specified bond mode.
-#   All bond_* options ignored for non-master-bond interfaces.
+#   All bond_* properties ignored for non-master-bond interfaces.
 #
 # [*bond_miimon*]
 #   lacp MII monitor period.
