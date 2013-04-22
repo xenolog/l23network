@@ -1,5 +1,8 @@
+*~
+*.swp
 *.gem
 *.rbc
+.idea
 .bundle
 .config
 coverage
