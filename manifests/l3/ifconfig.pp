@@ -156,6 +156,7 @@ define l23network::l3::ifconfig (
     /(?i)redhat/: {
       $if_files_dir = '/etc/sysconfig/network-scripts'
       $interfaces = false
+      include '::l23network::l2::centos_upndown_scripts'
     }
     default: {
       fail("Unsupported OS: ${::osfamily}/${::operatingsystem}")
@@ -259,6 +260,23 @@ define l23network::l3::ifconfig (
     owner   => 'root',
     mode    => '0644',
     content => template("l23network/ipconfig_${::osfamily}_${method}.erb"),
+  }
+  if $::osfamily =~ /(?i)redhat/ and $ipaddr_aliases {
+    file {"${if_files_dir}/interface-up-script-${interface}":
+      ensure  => present,
+      owner   => 'root',
+      mode    => '0755',
+      recurse => true,
+      content => template("l23network/ipconfig_${::osfamily}_${method}_up-script.erb"),
+    } ->
+    file {"${if_files_dir}/interface-down-script-${interface}":
+      ensure  => present,
+      owner   => 'root',
+      mode    => '0755',
+      recurse => true,
+      content => template("l23network/ipconfig_${::osfamily}_${method}_down-script.erb"),
+    } ->
+    File <| title == $interface_file |>
   }
 
   notify {"ifconfig_${interface}": message=>"Interface:${interface} IP:${effective_ipaddr}/${effective_netmask}", withpath=>false} ->
