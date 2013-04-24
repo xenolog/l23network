@@ -114,9 +114,18 @@ define l23network::l3::ifconfig (
     $method = 'bondslave'
   } else {
     case $ipaddr {
-      'dhcp':  { $method = 'dhcp' }
-      'none':  { $method = 'manual' }
-      default: { $method = 'static' }
+      'dhcp':  { 
+        $method = 'dhcp' 
+        $effective_ipaddr = $ipaddr
+      }
+      'none':  { 
+        $method = 'manual' 
+        $effective_ipaddr = $ipaddr
+      }
+      default: { 
+        $method = 'static' 
+        $effective_ipaddr = $ipaddr
+      }
     }
   }
 
@@ -233,7 +242,7 @@ define l23network::l3::ifconfig (
     content => template("l23network/ipconfig_${::osfamily}_${method}.erb"),
   }
 
-  notify {"ifconfig_${interface}": message=>"Interface:${interface} IP:${ipaddr}/${effective_netmask}", withpath=>false} ->
+  notify {"ifconfig_${interface}": message=>"Interface:${interface} IP:${effective_ipaddr}/${effective_netmask}", withpath=>false} ->
   l3_if_downup {"$interface":
     check_by_ping => $check_by_ping,
     check_by_ping_timeout => $check_by_ping_timeout,
