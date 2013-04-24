@@ -269,13 +269,13 @@ define l23network::l3::ifconfig (
       recurse => true,
       content => template("l23network/ipconfig_${::osfamily}_${method}_up-script.erb"),
     } ->
-    file {"${if_files_dir}/interface-down-script-${interface}":
-      ensure  => present,
-      owner   => 'root',
-      mode    => '0755',
-      recurse => true,
-      content => template("l23network/ipconfig_${::osfamily}_${method}_down-script.erb"),
-    } ->
+    # file {"${if_files_dir}/interface-down-script-${interface}":
+    #   ensure  => present,
+    #   owner   => 'root',
+    #   mode    => '0755',
+    #   recurse => true,
+    #   content => template("l23network/ipconfig_${::osfamily}_${method}_down-script.erb"),
+    # } ->
     File <| title == $interface_file |>
   }
 
