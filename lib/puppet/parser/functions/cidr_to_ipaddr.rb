@@ -1,6 +1,7 @@
 #
 # cidr_to_ipaddr.rb
 #
+require 'puppet/parser/functions/lib/prepare_cidr.rb'
 
 module Puppet::Parser::Functions
   newfunction(:cidr_to_ipaddr, :type => :rvalue, :doc => <<-EOS
@@ -12,12 +13,6 @@ EOS
         "given (#{arguments.size} for 1)") 
     end
 
-    cidr = arguments[0]
-    re_groups = /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\/\d{1,2}$/.match(cidr)
-    if ! re_groups
-      raise(Puppet::ParseError, "cidr_to_ipaddr(): Wrong CIDR: '#{cidr}'.")
-    end 
-    
-    return re_groups[1]
+    return prepare_cidr(arguments[0])[0]
   end
 end
