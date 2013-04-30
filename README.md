@@ -5,7 +5,7 @@ Puppet module for configuring network interfaces, 802.1q vlans, bonds on 2 and 3
 
 Usage
 -----
-Place this module at /etc/puppet/modules/l23network or to another directory, contains your puppet modules.
+Place this module at /etc/puppet/modules or to another path, contains your puppet modules.
 
 Include L23network module and initialize it. I recommend do it in early stage:
 
@@ -15,7 +15,7 @@ Include L23network module and initialize it. I recommend do it in early stage:
     }
     class {'l23network': stage=> 'netconfig'}
 
-If You not planned using open vSwitch -- you can disable it:
+If You don't planned using open vSwitch -- you can disable it:
 
     class {'l23network': use_ovs=>false, stage=> 'netconfig'}
 
@@ -48,24 +48,45 @@ You can define type for the port. Port type can be
 If you not define type for port (or define '') -- ovs-vsctl will have default behavior 
 (see http://openvswitch.org/cgi-bin/ovsman.cgi?page=utilities%2Fovs-vsctl.8).
 
-You can use skip_existing option if you not want interrupt configuration during adding existing port or bridge.
+You can use *skip_existing* option if you not want interrupt configuration during adding existing port or bridge.
 
-    L3 network configuation
-    -----------------------
-    
-    l23network::l3::ifconfig {"some_name0": interface=>'eth0', ipaddr=>'192.168.0.1', netmask=>'255.255.255.0'}
-    l23network::l3::ifconfig {"some_name1": interface=>'br-ex', ipaddr=>'192.168.10.1', netmask=>'255.255.255.0', ifname_order_prefix='ovs'}
-    l23network::l3::ifconfig {"some_name2": interface=>'aaa0', ipaddr=>'192.168.10.1', netmask=>'255.255.255.0', ifname_order_prefix='zzz'}
+L3 network configuation
+-----------------------
+
+### Simple IP address definition, DHCP or address-less interfaces
+### Multiple IP addresses for one interface (aliases)
+### UP and DOWN interface order
+### Default gateway
+### DNS-specific options
+### DHCP-specific options
+
+
+    l23network::l3::ifconfig {"eth0": ipaddr=>'192.168.0.1', netmask=>'255.255.255.0'}
+    l23network::l3::ifconfig {"eth1": ipaddr=>'192.168.1.1/24'}
+    l23network::l3::ifconfig {"some_name1": 
+      interface=>'br-ex', 
+      ipaddr=>'192.168.10.1', 
+      netmask=>'255.255.255.0', 
+      ifname_order_prefix='ovs'
+    }
+    l23network::l3::ifconfig {"aaa0": 
+      ipaddr=>'192.168.10.1/24', 
+      ifname_order_prefix='zzz'
+    }
     
     Option 'ipaddr' can contains IP address, 'dhcp', or 'none' for up empty unaddressed interface.
 
 Centos and Ubuntu at startup started and configure network interfaces in alphabetical order interface configuration file names. In example above we change configuration process order by ifname_order_prefix keyword. We will have this order:
 
     ifcfg-eth0
+    ifcfg-eth1
     ifcfg-ovs-br-ex
     ifcfg-zzz-aaa0
 
 And OS will configure interfaces br-ex and aaa0 after eth0
+
+
+You can ommit *netmask* parameter if you mean netmask '255.255.255.0'. If you use CIDR-notated address in *ipaddr* parameter -- parameter *netmask* will be ignored.
 
 Bonding
 -------
