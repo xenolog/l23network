@@ -54,39 +54,79 @@ L3 network configuation
 -----------------------
 
 ### Simple IP address definition, DHCP or address-less interfaces
+
+    l23network::l3::ifconfig {"eth0": ipaddr=>'192.168.1.1/24'}
+    l23network::l3::ifconfig {"xXxXxXx": 
+        interface => 'eth1',
+        ipaddr    => '192.168.2.1',
+        netmask   => '255.255.255.0'
+    }
+    l23network::l3::ifconfig {"eth2": ipaddr=>'dhcp'}
+    l23network::l3::ifconfig {"eth3": ipaddr=>'none'}
+
+Option *ipaddr* can contains IP address, 'dhcp', or 'none' string. In example above we describe configuration of 4 network interfaces:
+* Interface *eth0* have short CIDR-notated form of IP address definition.
+* Interface *eth1* 
+* Interface *eth2* will be configured to use dhcp protocol. 
+* Interface *eth3* will be configured as interface without IP address. 
+  Often it's need for create "master" interface for 802.1q vlans (in native linux implementation) 
+  or as slave interface for bonding.
+
+CIDR-notated form of IP address have more priority, that classic *ipaddr* and *netmask* definition. 
+If you ommited *natmask* and not used CIDR-notated form -- will be used 
+default *netmask* value as '255.255.255.0'.
+
 ### Multiple IP addresses for one interface (aliases)
+
+    l23network::l3::ifconfig {"eth0": 
+      ipaddr => ['192.168.0.1/24', '192.168.1.1/24', '192.168.2.1/24']
+    }
+    
+You can pass list of CIDR-notated IP addresses to the *ipaddr* parameter for assign many IP addresses to one interface.
+In this case will be created aliases (not a subinterfaces). Array can contains one or more elements.
+
 ### UP and DOWN interface order
-### Default gateway
-### DNS-specific options
-### DHCP-specific options
 
-
-    l23network::l3::ifconfig {"eth0": ipaddr=>'192.168.0.1', netmask=>'255.255.255.0'}
-    l23network::l3::ifconfig {"eth1": ipaddr=>'192.168.1.1/24'}
-    l23network::l3::ifconfig {"some_name1": 
-      interface=>'br-ex', 
-      ipaddr=>'192.168.10.1', 
-      netmask=>'255.255.255.0', 
+    l23network::l3::ifconfig {"eth1": 
+      ipaddr=>'192.168.1.1/24'
+    }
+    l23network::l3::ifconfig {"br-ex": 
+      ipaddr=>'192.168.10.1/24',
       ifname_order_prefix='ovs'
     }
     l23network::l3::ifconfig {"aaa0": 
-      ipaddr=>'192.168.10.1/24', 
+      ipaddr=>'192.168.20.1/24', 
       ifname_order_prefix='zzz'
     }
-    
-    Option 'ipaddr' can contains IP address, 'dhcp', or 'none' for up empty unaddressed interface.
 
-Centos and Ubuntu at startup started and configure network interfaces in alphabetical order interface configuration file names. In example above we change configuration process order by ifname_order_prefix keyword. We will have this order:
+Centos and Ubuntu at startup OS started and configure network interfaces in alphabetical order 
+interface configuration file names. In example above we change configuration process order 
+by *ifname_order_prefix* keyword. We will have this order:
 
-    ifcfg-eth0
     ifcfg-eth1
     ifcfg-ovs-br-ex
     ifcfg-zzz-aaa0
 
 And OS will configure interfaces br-ex and aaa0 after eth0
 
+### Default gateway
 
-You can ommit *netmask* parameter if you mean netmask '255.255.255.0'. If you use CIDR-notated address in *ipaddr* parameter -- parameter *netmask* will be ignored.
+    l23network::l3::ifconfig {"eth1":
+        ipaddr                => '192.168.2.5/24',
+        gateway               => '192.168.2.1',
+        check_by_ping         => '8.8.8.8',
+        check_by_ping_timeout => '30'
+    }
+
+In example above we define default *gateway* and options for waiting that network stay up. 
+Parameter *check_by_ping* define IP address, that will be pinged. Puppet will be blocked for waiting
+response for *check_by_ping_timeout* time. 
+Parameter *check_by_ping* can be IP address, 'gateway', or 'none' string for disabling checking.
+By default gateway will be pinged.
+
+### DNS-specific options
+### DHCP-specific options
+
 
 Bonding
 -------
