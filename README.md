@@ -125,8 +125,21 @@ Parameter *check_by_ping* can be IP address, 'gateway', or 'none' string for dis
 By default gateway will be pinged.
 
 ### DNS-specific options
+
+    l23network::l3::ifconfig {"eth1":
+        ipaddr          => '192.168.2.5/24',
+        dns_nameservers => ['8.8.8.8','8.8.4.4'],
+        dns_search      => ['aaa.com','bbb.com'],
+        dns_domain      => 'qqq.com'
+    }
+
+Also we can specify DNS nameservers, and search list that will be inserted (by resolvconf lib) to /etc/resolv.conf .
+Option *dns_domain* implemented only in Ubuntu.
+
 ### DHCP-specific options
 
+    dhcp_hostname
+    dhcp_nowait    
 
 Bonding
 -------
