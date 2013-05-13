@@ -24,7 +24,7 @@ If you do not planned using Open vSwitch -- you can disable it:
 
 
 
-L2 network configuation
+L2 network configuation (Open vSwitch only)
 -----------------------
 
 Current layout is:
