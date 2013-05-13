@@ -1,6 +1,8 @@
 L23network
 ==========
-Puppet module for configuring network interfaces, 802.1q vlans, bonds on 2 and 3 level. Can work together with Open vSwitch or standart linux way.  At this moment support Centos 6.3 (RHEL6) and Ubuntu 12.04 or above.
+Puppet module for configuring network interfaces on 2nd and 3rd level (802.1q vlans, access ports, NIC-bondind, assign IP addresses, dhcp, and interfaces without IP addresses). 
+Can work together with Open vSwitch or standart linux way.
+At this moment support Centos 6.3 (RHEL6) and Ubuntu 12.04 or above.
 
 
 Usage
@@ -15,7 +17,7 @@ Include L23network module and initialize it. I recommend do it in early stage:
     }
     class {'l23network': stage=> 'netconfig'}
 
-If you do not planned using open vSwitch -- you can disable it:
+If you do not planned using Open vSwitch -- you can disable it:
 
     class {'l23network': use_ovs=>false, stage=> 'netconfig'}
 
