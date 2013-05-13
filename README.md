@@ -20,6 +20,8 @@ If You don't planned using open vSwitch -- you can disable it:
     class {'l23network': use_ovs=>false, stage=> 'netconfig'}
 
 
+
+
 L2 network configuation
 -----------------------
 
@@ -49,6 +51,8 @@ If you not define type for port (or define '') -- ovs-vsctl will have default be
 (see http://openvswitch.org/cgi-bin/ovsman.cgi?page=utilities%2Fovs-vsctl.8).
 
 You can use *skip_existing* option if you not want interrupt configuration during adding existing port or bridge.
+
+
 
 L3 network configuation
 -----------------------
@@ -138,12 +142,17 @@ Option *dns_domain* implemented only in Ubuntu.
 
 ### DHCP-specific options
 
-    dhcp_hostname
-    dhcp_nowait    
+    l23network::l3::ifconfig {"eth2":
+        ipaddr          => 'dhcp',
+        dhcp_hostname   => 'compute312',
+        dhcp_nowait     => false,
+    }
+
+
 
 Bonding
 -------
-### Using standart linux ifenslave bond
+### Using standart linux bond (by ifenslave utility)
 For bonding two interfaces you need:
 * Specify this interfaces as interfaces without IP addresses
 * Specify that interfaces depends from master-bond-interface
@@ -167,9 +176,13 @@ more information about bonding network interfaces you can get in manuals for you
 * https://help.ubuntu.com/community/UbuntuBonding
 * http://wiki.centos.org/TipsAndTricks/BondingInterfaces
 
-### Using open vSwitch
-In open vSwitch for bonding two network interfaces you need add special resource "bond" to bridge. 
-In this example we add "eth1" and "eth2" interfaces to bridge "bridge0":
+### Using Open vSwitch
+For bonding two interfaces you need:
+* Specify OVS bridge
+* Specify special resource "bond" and add it bridge. Specify bond-specific parametres.
+* Assign IP address to the newly-created network interface.
+
+In example abowe  we add "eth1" and "eth2" interfaces to bridge "bridge0". 
 
     l23network::l2::bridge{'bridge0': } ->
     l23network::l2::bond{'bond1':
@@ -179,12 +192,18 @@ In this example we add "eth1" and "eth2" interfaces to bridge "bridge0":
            'lacp=active',
            'other_config:lacp-time=fast'
         ],
+    } ->
+    l23network::l3::ifconfig {'bond1':
+        ipaddr          => '192.168.232.1',
+        netmask         => '255.255.255.0',
     }
 
 Open vSwitch provides lot of parameter for different configurations. 
 We can specify them in "properties" option as list of parameter=value 
 (or parameter:key=value) strings.
 The most of them you can see in [open vSwitch documentation page](http://openvswitch.org/support/).
+
+
 
 802.1q vlan access ports
 ------------------------
@@ -223,22 +242,32 @@ In this example we can see both variants:
         ipaddr  => 'none',    
     } 
 
-### Using open vSwitch
+### Using Open vSwitch
 In the open vSwitch all internal traffic are virtually tagged.
 For creating 802.1q tagged access port you need specify vlan tag when adding port to bridge. 
-In example above we create two ports with tags 10 and 20:
+In example above we create two ports with tags 10 and 20, assign IP address to interface with tag 10:
 
     l23network::l2::bridge{'bridge0': } ->
     l23network::l2::port{'vl10':
-      bridge  => 'bridge0',
-      type    => 'internal',
-      port_properties => ['tag=10'],
+        bridge  => 'bridge0',
+        type    => 'internal',
+        port_properties => [
+            'tag=10'
+        ],
     } ->
     l23network::l2::port{'vl20':
-      bridge  => 'bridge0',
-      type    => 'internal',
-      port_properties => ['tag=20'],
-    }
+        bridge  => 'bridge0',
+        type    => 'internal',
+        port_properties => [
+            'tag=20'
+        ],
+    } ->
+    l23network::l3::ifconfig {'vl10':
+        ipaddr  => '192.168.101.1/24',
+    } ->
+    l23network::l3::ifconfig {'vl20':
+        ipaddr  => 'none',    
+    } 
     
 Information about vlans in open vSwitch you can get in [open vSwitch documentation page](http://openvswitch.org/support/config-cookbooks/vlan-configuration-cookbook/).
 
