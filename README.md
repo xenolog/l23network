@@ -1,6 +1,6 @@
 L23network
 ==========
-Puppet module for configuring network interfaces, 802.1q vlans, bonds on 2 and 3 level. Can work together with open vSwitch or standart linux way.  At this moment support Centos 6.3 (RHEL6) and Ubuntu 12.04 or above.
+Puppet module for configuring network interfaces, 802.1q vlans, bonds on 2 and 3 level. Can work together with Open vSwitch or standart linux way.  At this moment support Centos 6.3 (RHEL6) and Ubuntu 12.04 or above.
 
 
 Usage
@@ -15,7 +15,7 @@ Include L23network module and initialize it. I recommend do it in early stage:
     }
     class {'l23network': stage=> 'netconfig'}
 
-If You don't planned using open vSwitch -- you can disable it:
+If you do not planned using open vSwitch -- you can disable it:
 
     class {'l23network': use_ovs=>false, stage=> 'netconfig'}
 
@@ -68,7 +68,7 @@ L3 network configuation
     l23network::l3::ifconfig {"eth2": ipaddr=>'dhcp'}
     l23network::l3::ifconfig {"eth3": ipaddr=>'none'}
 
-Option *ipaddr* can contains IP address, 'dhcp', or 'none' string. In example above we describe configuration of 4 network interfaces:
+Option *ipaddr* can contains IP address, 'dhcp', or 'none' string. In this example we describe configuration of 4 network interfaces:
 * Interface *eth0* have short CIDR-notated form of IP address definition.
 * Interface *eth1* 
 * Interface *eth2* will be configured to use dhcp protocol. 
@@ -103,7 +103,7 @@ In this case will be created aliases (not a subinterfaces). Array can contains o
       ifname_order_prefix='zzz'
     }
 
-Centos and Ubuntu at startup OS started and configure network interfaces in alphabetical order 
+Centos and Ubuntu (at startup OS) start and configure network interfaces in alphabetical order 
 interface configuration file names. In example above we change configuration process order 
 by *ifname_order_prefix* keyword. We will have this order:
 
@@ -122,9 +122,9 @@ And OS will configure interfaces br-ex and aaa0 after eth0
         check_by_ping_timeout => '30'
     }
 
-In example above we define default *gateway* and options for waiting that network stay up. 
+In this example we define default *gateway* and options for waiting that network stay up. 
 Parameter *check_by_ping* define IP address, that will be pinged. Puppet will be blocked for waiting
-response for *check_by_ping_timeout* time. 
+response for *check_by_ping_timeout* seconds. 
 Parameter *check_by_ping* can be IP address, 'gateway', or 'none' string for disabling checking.
 By default gateway will be pinged.
 
@@ -152,7 +152,7 @@ Option *dns_domain* implemented only in Ubuntu.
 
 Bonding
 -------
-### Using standart linux bond (by ifenslave utility)
+### Using standart linux bond (ifenslave)
 For bonding two interfaces you need:
 * Specify this interfaces as interfaces without IP addresses
 * Specify that interfaces depends from master-bond-interface
@@ -179,10 +179,10 @@ more information about bonding network interfaces you can get in manuals for you
 ### Using Open vSwitch
 For bonding two interfaces you need:
 * Specify OVS bridge
-* Specify special resource "bond" and add it bridge. Specify bond-specific parametres.
-* Assign IP address to the newly-created network interface.
+* Specify special resource "bond" and add it to bridge. Specify bond-specific parameters.
+* Assign IP address to the newly-created network interface (if need).
 
-In example abowe  we add "eth1" and "eth2" interfaces to bridge "bridge0". 
+In this example we add "eth1" and "eth2" interfaces to bridge "bridge0" as bond "bond1". 
 
     l23network::l2::bridge{'bridge0': } ->
     l23network::l2::bond{'bond1':
@@ -208,7 +208,7 @@ The most of them you can see in [open vSwitch documentation page](http://openvsw
 802.1q vlan access ports
 ------------------------
 ### Using standart linux way
-We can use tagged vlans over ordinary network interfaces and over bonds. 
+We can use tagged vlans over ordinary network interfaces (or over bonds). 
 L23networks support two variants of naming vlan interfaces:
 * *vlanXXX* -- 802.1q tag gives from the vlan interface name, but you need specify 
 parent intarface name in the **vlandev** parameter.
@@ -243,9 +243,9 @@ In this example we can see both variants:
     } 
 
 ### Using Open vSwitch
-In the open vSwitch all internal traffic are virtually tagged.
+In the Open vSwitch all internal traffic are virtually tagged.
 For creating 802.1q tagged access port you need specify vlan tag when adding port to bridge. 
-In example above we create two ports with tags 10 and 20, assign IP address to interface with tag 10:
+In this example we create two ports with tags 10 and 20, and assign IP address to interface with tag 10:
 
     l23network::l2::bridge{'bridge0': } ->
     l23network::l2::port{'vl10':
