@@ -1,6 +1,6 @@
 # == Define: l23network::l3::create_br_iface
 #
-# Creating L2 ovs bridge, cleaning IPs from interface and add IP address to this
+# Create L2 ovs bridge, clean IPs from interface and add IP address to this
 # bridge
 #
 # === Parameters
@@ -9,9 +9,10 @@
 #   Bridge name
 #
 # [*interface*]
-#   Interface, that will be added to the bridge. If You set array of interface names -- 
-#   Open vSwitch bond will be builded on its. In this case You must set ovs_bond_name and
-#   ovs_bond_properties properties.
+#   Interface that will be added to the bridge. 
+#   If you set the interface parameter as an array of interface names 
+#   then Open vSwitch will create bond with given interfaces.
+#   In this case you must set ovs_bond_name and ovs_bond_properties parameters.
 #
 # [*ipaddr*]
 #   IP address for port in bridge.
@@ -20,20 +21,22 @@
 #   Network mask.
 #
 # [*gateway*]
-#   You can specify default gateway. 
-#
-# [*save_default_gateway*]
-#   If current network configuration contains a default gateway 
-#   this option allow try to save it.
+#   You can specify default gateway IP address, or 'save' for save default route 
+#   if it lies through this interface now.
 #
 # [*dns_nameservers*]
 #   Dns nameservers to use
 # 
 # [*dns_domain*]
-#   describe DNS domain
+#   Describe DNS domain
 #
 # [*dns_search*]
 #   DNS domain to search for
+#
+# [*save_default_gateway*]
+#   If current network configuration contains a gateway parameter
+#   this option will try to save it.
+#   DEPRECATED!!! use gateway=>'save'
 #
 define l23network::l3::create_br_iface (
     $interface,
@@ -56,7 +59,7 @@ define l23network::l3::create_br_iface (
     $interface_order_prefix = false,
 ){
     if ! $::l23network::l2::use_ovs {
-      fail('You need enable using Open vSwitch. You yourself has prohibited it.')
+      fail('You must enable Open vSwitch by setting the l23network::l2::use_ovs to true.')
     }
     
     if ! $external_ids {
@@ -65,8 +68,8 @@ define l23network::l3::create_br_iface (
     #
     if $gateway {
       $gateway_ip_address_for_newly_created_interface = $gateway
-    } elsif $save_default_gateway and $::l3_default_route_interface == $interface {
-      $gateway_ip_address_for_newly_created_interface = $::l3_default_route
+    } elsif ($save_default_gateway or $gateway == 'save') and $::l3_default_route_interface == $interface {
+      $gateway_ip_address_for_newly_created_interface = 'save'
     } else {
       $gateway_ip_address_for_newly_created_interface = undef
     }
@@ -76,7 +79,7 @@ define l23network::l3::create_br_iface (
       external_ids  => $ext_ids,
     }
     if is_array($interface) {
-      # Build ovs bridge, contains ovs bond with givet interfaces
+      # Build an ovs bridge containing ovs bond with given interfaces
       l23network::l2::bond {"$ovs_bond_name":
         bridge        => $bridge,
         ports         => $interface,
@@ -84,20 +87,20 @@ define l23network::l3::create_br_iface (
         skip_existing => $se,
         require       => L23network::L2::Bridge["$bridge"]
       } ->
-      l23network::l3::ifconfig {$interface: # do not quotas here, $interface may be array!!!
+      l23network::l3::ifconfig {$interface: # no quotes here, $interface _may_be_ array!!!
         ipaddr    => 'none',
         ifname_order_prefix => '0',
         require   => L23network::L2::Bond["$ovs_bond_name"],
         before    => L23network::L3::Ifconfig["$bridge"]
       }
     } else {
-      # Build ovs bridge, contains one interface
+      # Build an ovs bridge containing one interface
       l23network::l2::port {$interface:
         bridge        => $bridge,
         skip_existing => $se,
         require       => L23network::L2::Bridge["$bridge"]
       } ->
-      l23network::l3::ifconfig {"$interface": # USE quotas!!!!!
+      l23network::l3::ifconfig {"$interface": # USE quotes!!!!!
         ipaddr    => 'none',
         vlandev   => $lnx_interface_vlandev,
         bond_mode      => $lnx_interface_bond_mode,
