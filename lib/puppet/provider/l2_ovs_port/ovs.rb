@@ -20,7 +20,7 @@ Puppet::Type.type(:l2_ovs_port).provide(:ovs) do
     cmd = [@resource[:bridge], @resource[:interface]]
     # add port properties (k/w) to command line
     if @resource[:port_properties]
-      for option in @resource[:port_properties]
+      for option in Array(@resource[:port_properties])
         cmd += [option]
       end
     end
@@ -39,7 +39,7 @@ Puppet::Type.type(:l2_ovs_port).provide(:ovs) do
     end
     # set interface properties
     if @resource[:interface_properties]
-      for option in @resource[:interface_properties]
+      for option in Array(@resource[:interface_properties])
         begin
           vsctl('--', "set", "Interface", @resource[:interface], option.to_s)
         rescue Puppet::ExecutionFailure => error
