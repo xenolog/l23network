@@ -13,6 +13,8 @@ Puppet::Type.type(:l2_ovs_bridge).provide(:ovs) do
       if @resource[:skip_existing]
         notice("Bridge '#{@resource[:bridge]}' already exists, skip creating.")
         #external_ids = @resource[:external_ids] if @resource[:external_ids]
+        set_port_properties()
+        set_interface_properties()
         return true
       else
         raise Puppet::ExecutionFailure, "Bridge '#{@resource[:bridge]}' already exists."
@@ -23,6 +25,8 @@ Puppet::Type.type(:l2_ovs_bridge).provide(:ovs) do
     end
     vsctl('add-br', @resource[:bridge])
     notice("bridge '#{@resource[:bridge]}' created.")
+    set_port_properties()
+    set_interface_properties()
     external_ids = @resource[:external_ids] if @resource[:external_ids]
   end
 
@@ -49,4 +53,33 @@ Puppet::Type.type(:l2_ovs_bridge).provide(:ovs) do
       end
     end
   end
+
+  private
+
+  def set_port_properties()
+    if @resource[:interface_properties]
+      for option in Array(@resource[:interface_properties])
+        begin
+          vsctl('--', "set", "Port", @resource[:bridge], option.to_s)
+        rescue Puppet::ExecutionFailure => error
+          raise Puppet::ExecutionFailure, "Interface '#{@resource[:bridge]}' can't set option '#{option}':\n#{error}"
+        end
+      end
+    end
+    return true
+  end
+
+  def set_interface_properties()
+    if @resource[:interface_properties]
+      for option in Array(@resource[:interface_properties])
+        begin
+          vsctl('--', "set", "Interface", @resource[:bridge], option.to_s)
+        rescue Puppet::ExecutionFailure => error
+          raise Puppet::ExecutionFailure, "Interface '#{@resource[:bridge]}' can't set option '#{option}':\n#{error}"
+        end
+      end
+    end
+    return true
+  end
+
 end
