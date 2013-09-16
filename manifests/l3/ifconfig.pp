@@ -233,7 +233,7 @@ define l23network::l3::ifconfig (
   }
 
   if $method == 'static' {
-    if $gateway and gateway != 'save' {
+    if $gateway and $gateway != 'save' {
       $def_gateway = $gateway
     } else {
       # recognizing default gateway
