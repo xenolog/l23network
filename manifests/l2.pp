@@ -13,9 +13,7 @@ class l23network::l2 (
     #include ::l23network::l2::use_ovs
     package {$::l23network::params::ovs_packages:
       ensure => present,
-      before => Service['openvswitch-service'],
-      notify => Service['openvswitch-service'],
-    }
+    } ~>
     service {'openvswitch-service':
       ensure    => running,
       name      => $::l23network::params::ovs_service_name,
