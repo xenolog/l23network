@@ -206,12 +206,12 @@ define l23network::l3::ifconfig (
         fail("Can't configure vlan interface ${interface} without definition (ex: vlandev=>ethXX).")
       }
     }
-    /^(eth\d+)\.(\d+)/: { # TODO: bond0.123 -- also vlan
+    /^(eth\d+|bond\d+)\.(\d+)/: {
       $vlan_mode = 'eth'
       $vlan_id   = $2
       $vlan_dev  = $1
     }
-    /^(bond\d+)/: {
+    /^(bond\d+)$/: {
       if ! $bond_mode {
         fail("To configure the interface bonding you must the bond_mode parameter is required and must be between 0..6.")
       }
