@@ -58,7 +58,7 @@ module Facter::Util::NetStat
     c1 = map[:dest]
     c2 = map[label.to_sym]
 
-    get_ipv4_output.to_a.collect { |s| s.split}.each { |a|
+    ((output = get_ipv4_output).respond_to?(:lines) ? output.lines.to_a : output.to_a).collect { |s| s.split}.each { |a|
       if a[c1] == route
         tmp1 << a[c2]
       end
