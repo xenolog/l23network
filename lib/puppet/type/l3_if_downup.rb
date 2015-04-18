@@ -54,14 +54,36 @@ Puppet::Type.newtype(:l3_if_downup) do
     end
 
     newparam(:check_by_ping_timeout) do
+      defaultto(30)
+    end
+
+    newparam(:wait_carrier_after_ifup) do
+      desc "Enable carrier waiting after interface up. Affect only phys.interfaces."
+      newvalues(true, false)
+      defaultto(true)
+    end
+
+    newparam(:wait_carrier_after_ifup_timeout) do
+      desc "Timeout for carrier waiting after interface up."
       defaultto(120)
+      validate do |val|
+        if val.to_i() >= 0
+          true
+        else
+          fail("Timeout must be a positive integer, not '#{val}'.")
+        end
+      end
+      munge do |val|
+        val.to_i()
+      end
     end
 
     def refresh
-      provider.restart
+      provider.restart()
     end
 
-    # autorequire(:l2_ovs_bridge) do
+    # autorequire(:l2_bridge) do
     #   [self[:bridge]]
     # end
 end
+# vim: set ts=2 sw=2 et :

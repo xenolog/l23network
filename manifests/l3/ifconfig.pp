@@ -16,32 +16,21 @@
 # [*netmask*]
 #   Specify network mask. Default is '255.255.255.0'.
 #
-# [*vlandev*]
-#   If you configure 802.1q vlan interface with name like 'vlanXXX'
-#   you must specify a parent interface in this option
-#
-# [*bond_master*]
-#   This parameter sets the bond_master interface and says that this interface
-#   is a slave for bondX interface.
-#
-# [*bond_mode*]
-#   This parameter specifies a bond mode for interfaces like bondNN.
-#   All bond_* properties are ignored for non-bond-master interfaces.
-#
-# [*bond_miimon*]
-#   lacp MII monitor period.
-#
-# [*bond_lacp_rate*]
-#   lacp MII rate
-#
-# [*ifname_order_prefix*]
-#    Sets the interface startup order
-#
 # [*gateway*]
 #   Specify default gateway if need.
 #   You can specify IP address, or 'save' for save default route
 #   if it lies through this interface now.
 #
+## [*default_gateway*]
+##   Specify if this nic and gateway should become the default route.
+##   requires that gateway is also set.
+##
+## [*other_nets*]
+##   Optional. Defines additional networks that this inteface can reach in CIDR
+##   format.
+##   It will be used to add additional routes to this interface.
+##   other_nets => ['10.10.2.0/24', '10.10.4.0/24']
+##
 # [*dns_nameservers*]
 #   Specify a pair of nameservers if need. Must be an array, for example:
 #   nameservers => ['8.8.8.8', '8.8.4.4']
@@ -69,51 +58,35 @@
 # [*check_by_ping_timeout*]
 #   Timeout for check_by_ping
 #
-#
-# If you configure 802.1q vlan interfaces then you must declare relationships
-# between them in site.pp.
-# Ex: L23network:L3:Ifconfig['eth2'] -> L23network:L3:Ifconfig['eth2.128']
-#
+
 define l23network::l3::ifconfig (
-    $ipaddr,
+    $ensure          = present,
     $interface       = $name,
-    $netmask         = '255.255.255.0',
+    $ipaddr          = undef,
     $gateway         = undef,
-    $vlandev         = undef,
-    $bond_master     = undef,
-    $bond_mode       = undef,
-    $bond_miimon     = 100,
-    $bond_lacp_rate  = 1,
-    $mtu             = undef,
+    $gateway_metric  = undef,
+#   $default_gateway = false,
+#   $other_nets      = undef,
     $dns_nameservers = undef,
     $dns_search      = undef,
     $dns_domain      = undef,
     $dhcp_hostname   = undef,
-    $dhcp_nowait     = false,
-    $ifname_order_prefix = false,
+#   $dhcp_nowait     = false,
     $check_by_ping   = 'gateway',
-    $check_by_ping_timeout = 120,
+    $check_by_ping_timeout = 30,
     #todo: label => "XXX", # -- "ip addr add..... label XXX"
-){
+    $vendor_specific = undef,
+    $provider        = undef
+) {
+  include ::stdlib
   include ::l23network::params
 
-  $bond_modes = [
-    'balance-rr',
-    'active-backup',
-    'balance-xor',
-    'broadcast',
-    '802.3ad',
-    'balance-tlb',
-    'balance-alb'
-  ]
-
   # setup configure method for inteface
-  if $bond_master {
-    $method = 'bondslave'
-  } elsif is_array($ipaddr) {
+  if is_array($ipaddr) {
     # getting array of IP addresses for one interface
     $method = 'static'
     check_cidrs($ipaddr)
+    $ipaddr_list = $ipaddr
     $effective_ipaddr  = cidr_to_ipaddr($ipaddr[0])
     $effective_netmask = cidr_to_netmask($ipaddr[0])
     $ipaddr_aliases    = array_part($ipaddr,1,0)
@@ -123,13 +96,15 @@ define l23network::l3::ifconfig (
     case $ipaddr {
       'dhcp':  {
         $method = 'dhcp'
-        $effective_ipaddr  = $ipaddr
+        $effective_ipaddr  = 'dhcp'
         $effective_netmask = undef
+        $ipaddr_list = ['dhcp']
       }
       'none':  {
         $method = 'manual'
-        $effective_ipaddr  = $ipaddr
+        $effective_ipaddr  = 'none'
         $effective_netmask = undef
+        $ipaddr_list = ['none']
       }
       default: {
         $method = 'static'
@@ -137,44 +112,23 @@ define l23network::l3::ifconfig (
           # ipaddr can be cidr-notated
           $effective_ipaddr = cidr_to_ipaddr($ipaddr)
           $effective_netmask = cidr_to_netmask($ipaddr)
+          $ipaddr_list = [$ipaddr]
         } else {
           # or classic pair of ipaddr+netmask
           $effective_ipaddr = $ipaddr
           $effective_netmask = $netmask
+          $cidr_notated_effective_netmask = netmask_to_cidr($netmask)
+          $ipaddr_list = ["${ipaddr}/${cidr_notated_effective_netmask}"]
         }
       }
     }
   } else {
-    fail("Ipaddr must be a string or array of strings")
-  }
-
-  # OS dependent constants and packages
-  case $::osfamily {
-    /(?i)debian/: {
-      $if_files_dir = '/etc/network/interfaces.d'
-      $interfaces = '/etc/network/interfaces'
-    }
-    /(?i)redhat/: {
-      $if_files_dir = '/etc/sysconfig/network-scripts'
-      $interfaces = false
-      if ! defined(Class[L23network::L2::Centos_upndown_scripts]) {
-        if defined(Stage[netconfig]) {
-          class{'l23network::l2::centos_upndown_scripts': stage=>'netconfig' }
-        } else {
-          class{'l23network::l2::centos_upndown_scripts': }
-        }
-      }
-      Anchor <| title == 'l23network::l2::centos_upndown_scripts' |>
-        -> L23network::L3::Ifconfig <| interface == "$interface" |>
-    }
-    default: {
-      fail("Unsupported OS: ${::osfamily}/${::operatingsystem}")
-    }
+    fail('Ipaddr must be a single IPaddr or list of IPaddrs in CIDR notation.')
   }
 
   # DNS nameservers, search and domain options
   if $dns_nameservers {
-    $dns_nameservers_list = merge_arrays( array_or_string_to_array($dns_nameservers), [false, false])
+    $dns_nameservers_list = concat(array_or_string_to_array($dns_nameservers), [false, false])
     $dns_nameservers_1 = $dns_nameservers_list[0]
     $dns_nameservers_2 = $dns_nameservers_list[1]
   }
@@ -183,7 +137,7 @@ define l23network::l3::ifconfig (
     if $dns_search_list {
       $dns_search_string = join($dns_search_list, ' ')
     } else {
-      fail("dns_search option must be array or string")
+      fail('dns_search option must be array or string')
     }
   }
   if $dns_domain {
@@ -191,107 +145,90 @@ define l23network::l3::ifconfig (
     if $dns_domain_list {
       $dns_domain_string = $dns_domain_list[0]
     } else {
-      fail("dns_domain option must be array or string")
+      fail('dns_domain option must be array or string')
     }
-  }
-
-  # Detect VLAN and bond mode configuration
-  case $interface {
-    /^vlan(\d+)/: {
-      $vlan_mode = 'vlan'
-      $vlan_id   = $1
-      if $vlandev {
-        $vlan_dev = $vlandev
-      } else {
-        fail("Can't configure vlan interface ${interface} without definition (ex: vlandev=>ethXX).")
-      }
-    }
-    /^(eth\d+|bond\d+)\.(\d+)/: {
-      $vlan_mode = 'eth'
-      $vlan_id   = $2
-      $vlan_dev  = $1
-    }
-    /^(bond\d+)$/: {
-      if ! $bond_mode {
-        fail("To configure the interface bonding you must the bond_mode parameter is required and must be between 0..6.")
-      }
-      if $bond_mode <0 or $bond_mode>6 {
-        fail("For interface bonding the bond_mode must be between 0..6, not '${bond_mode}'.")
-      }
-      $vlan_mode = undef
-    }
-    default: {
-      $vlan_mode = undef
-    }
-  }
-
-  # Specify interface file name prefix
-  if $ifname_order_prefix {
-    $interface_file= "${if_files_dir}/ifcfg-${ifname_order_prefix}-${interface}"
-  } else {
-    $interface_file= "${if_files_dir}/ifcfg-${interface}"
   }
 
   if $method == 'static' {
-    if $gateway and $gateway != 'save' {
-      $def_gateway = $gateway
-    } else {
-      # recognizing default gateway
-      if $gateway == 'save' and $::l3_default_route and $::l3_default_route_interface == $interface {
-        $def_gateway = $::l3_default_route
-      } else {
-        $def_gateway = undef
-      }
-    }
-    if $::osfamily == 'RedHat' and $def_gateway and !defined(L23network::L3::Defaultroute[$def_gateway]) {
-      l23network::l3::defaultroute { $def_gateway: }
-    }
+    $def_gateway = $gateway
+    # # todo: move routing to separated resource with his own provider
+    # if ($def_gateway and !defined(L23network::L3::Defaultroute[$def_gateway])) {
+    #   Anchor['l23network::init'] ->
+    #   L3_ifconfig[$interface]
+    #   ->
+    #   l23network::l3::defaultroute { $def_gateway: }
+    # }
   } else {
     $def_gateway = undef
   }
 
-  if $interfaces {
-    if ! defined(File["$interfaces"]) {
-      file {"$interfaces":
-        ensure  => present,
-        content => template('l23network/interfaces.erb'),
+  # todo: re-implement later
+  # if $::osfamily =~ /(?i)redhat/ and ($ipaddr_aliases or $ethtool_lines) {
+  #   Anchor['l23network::init'] ->
+  #   file {"${::l23network::params::interfaces_dir}/interface-up-script-${interface}":
+  #     ensure  => present,
+  #     owner   => 'root',
+  #     mode    => '0755',
+  #     recurse => true,
+  #     content => template("l23network/ipconfig_${::osfamily}_ifup-script.erb"),
+  #   } ->
+  #   file {"${::l23network::params::interfaces_dir}/interface-dn-script-${interface}":
+  #     ensure  => present,
+  #     owner   => 'root',
+  #     mode    => '0755',
+  #     recurse => true,
+  #     content => template("l23network/ipconfig_${::osfamily}_ifdn-script.erb"),
+  #   } ->
+  #   File <| title == $interface_file |>
+  # }
+
+  if ! defined (L3_ifconfig[$interface]) {
+    if $provider {
+      $config_provider = "${provider}_${::l23_os}"
+    } else {
+      $config_provider = undef
+    }
+
+
+    if !defined(L23network::L2::Port[$interface]) and !defined(L23network::L2::Bond[$interface]) and !defined(L23network::L2::Bridge[$interface]) {
+      l23network::l2::port { $interface: }
+      L23network::L2::Port[$interface] -> L3_ifconfig[$interface]
+    }
+
+
+    if ! defined (L23_stored_config[$interface]) {
+      l23_stored_config { $interface:
+        provider     => $config_provider
       }
     }
-    File<| title == "$interfaces" |> -> File<| title == "$if_files_dir" |>
-  }
-
-  if ! defined(File["$if_files_dir"]) {
-    file {"$if_files_dir":
-      ensure  => directory,
-      owner   => 'root',
-      mode    => '0755',
-      recurse => true,
+    L23_stored_config <| title == $interface |> {
+      method          => $method,
+      ipaddr          => $ipaddr_list[0],
+      gateway         => $def_gateway,
+      gateway_metric  => $gateway_metric,
+      vendor_specific => $vendor_specific,
+      #provider      => $config_provider  # do not enable, provider should be set while port define
     }
-  }
-  File<| title == "$if_files_dir" |> -> File<| title == "$interface_file" |>
 
-  file {"$interface_file":
-    ensure  => present,
-    owner   => 'root',
-    mode    => '0644',
-    content => template("l23network/ipconfig_${::osfamily}_${method}.erb"),
-  }
-  if $::osfamily =~ /(?i)redhat/ and $ipaddr_aliases {
-    file {"${if_files_dir}/interface-up-script-${interface}":
-      ensure  => present,
-      owner   => 'root',
-      mode    => '0755',
-      recurse => true,
-      content => template("l23network/ipconfig_${::osfamily}_${method}_up-script.erb"),
-    } ->
-    File <| title == $interface_file |>
+    # configure runtime
+    l3_ifconfig { $interface :
+      ensure                => $ensure,
+      ipaddr                => $ipaddr_list,
+      gateway               => $def_gateway,
+      gateway_metric        => $gateway_metric,
+##    $other_nets           = undef,
+#     dns_nameservers       => $dns_nameservers,
+#     dns_search            => $dns_search_string,
+#     dns_domain            => $dns_domain_string,
+#     dhcp_hostname         => $dhcp_hostname,
+#     check_by_ping         => $check_by_ping,
+#     check_by_ping_timeout => $check_by_ping_timeout,
+      vendor_specific       => $vendor_specific,
+      provider              => $provider  # For L3 features provider independed from OVS
+    }
+
+    L23_stored_config <| title == $interface |> ->
+    L3_ifconfig <| title == $interface |>
   }
 
-  notify {"ifconfig_${interface}": message=>"Interface:${interface} IP:${effective_ipaddr}/${effective_netmask}", withpath=>false} ->
-  l3_if_downup {"$interface":
-    check_by_ping => $check_by_ping,
-    check_by_ping_timeout => $check_by_ping_timeout,
-    subscribe     => File["$interface_file"],
-    refreshonly   => true,
-  }
 }
