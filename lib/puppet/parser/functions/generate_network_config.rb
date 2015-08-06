@@ -48,6 +48,7 @@ module L23network
 #       :bridge_id            => nil,
         :external_ids         => nil,
 #       :interface_properties => nil,
+        :delay_while_up       => nil,
         :vendor_specific      => nil,
         :provider             => def_provider
       }
@@ -60,6 +61,7 @@ module L23network
         :vlan_id              => nil,
         :vlan_dev             => nil,
 #       :trunks               => [],
+        :delay_while_up       => nil,
         :vendor_specific      => nil,
         :provider             => def_provider
       }
@@ -70,6 +72,7 @@ module L23network
         :interfaces           => [],
 #       :vlan_id              => 0,
 #       :trunks               => [],
+        :delay_while_up       => nil,
         :bond_properties      => nil,
         :interface_properties => nil,
         :vendor_specific      => nil,
@@ -269,10 +272,25 @@ Puppet::Parser::Functions::newfunction(:generate_network_config, :type => :rvalu
         trans.merge! ports_properties[trans[:name].to_sym()]
       end
 
+      # add default delay for bonds. 45 sec. for LACP bonds and 15 sec for another.
+      if (action == :bond) && trans[:bond_properties].is_a?(Hash) && trans[:delay_while_up].to_i == 0
+        delay_while_up = ( trans[:bond_properties][:mode]=='802.3ad'  ?  45  :  15  )
+        if ['', 'absent'].include? trans[:bridge].to_s
+          # bond not included to bridge. I.e. has IP address or subinterfaces and post-up has sense
+          trans[:delay_while_up] = delay_while_up
+        else
+          # bond included to bridge. I.e. has no IP address
+          bridge_res = findresource("L23network::L2::Bridge[#{trans[:bridge].to_s}]")
+          if !bridge_res.nil? && bridge_res[:delay_while_up].nil?
+            bridge_res[:delay_while_up] = delay_while_up
+          end
+        end
+      end
+
       # create puppet resources for transformations
       resource = res_factory[action]
       resource_properties = { }
-      debug("generate_network_config(): Transformation '#{trans[:name]}' will be produced as \n#{trans.to_yaml.gsub('!ruby/sym ',':')}")
+      debug("generate_network_config(): Transformation '#{trans[:name]}' will be produced as \n#{trans.to_yaml.gsub('!ruby/sym ','')}")
 
       trans.select{|k,v| k != :action}.each do |k,v|
         if ['Hash', 'Array'].include? v.class.to_s
@@ -319,7 +337,7 @@ Puppet::Parser::Functions::newfunction(:generate_network_config, :type => :rvalu
 
         # create resource
         resource = res_factory[:ifconfig]
-        debug("generate_network_config(): Endpoint '#{endpoint_name}' will be created with additional properties \n#{endpoints[endpoint_name].to_yaml.gsub('!ruby/sym ',':')}")
+        debug("generate_network_config(): Endpoint '#{endpoint_name}' will be created with additional properties \n#{endpoints[endpoint_name].to_yaml.gsub('!ruby/sym ','')}")
         # collect properties for creating endpoint resource
         endpoints[endpoint_name].each_pair do |k,v|
           if k.to_s.downcase == 'routes'
