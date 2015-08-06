@@ -22,6 +22,7 @@ class Puppet::Provider::L23_stored_config_centos6 < Puppet::Provider::L23_stored
       :bridge                => 'BRIDGE',
       :prefix                => 'PREFIX',
       :gateway               => 'GATEWAY',
+      :gateway_metric        => 'METRIC',
       :bond_master           => 'MASTER',
       :slave                 => 'SLAVE',
       :bond_mode             => 'mode',
@@ -30,6 +31,7 @@ class Puppet::Provider::L23_stored_config_centos6 < Puppet::Provider::L23_stored
       :bond_lacp_rate        => 'lacp_rate',
       :bond_xmit_hash_policy => 'xmit_hash_policy',
       :ethtool               => 'ETHTOOL_OPTS',
+      :routes                => 'ROUTES',
     }
   end
   def property_mappings
@@ -111,6 +113,18 @@ class Puppet::Provider::L23_stored_config_centos6 < Puppet::Provider::L23_stored
       end
       hash
     end
+
+    route_filename = "#{self.script_directory}/route-#{dirty_iface_name}"
+    if File.exist?(route_filename)
+      route_file = open(route_filename, 'r')
+      rv = {}
+      while (line = route_file.gets)
+        rv[line.split(' ')[0]] = line
+      end
+      route_file.close
+      hash['ROUTES'] = rv
+    end
+
     if hash.has_key?('IPADDR')
       hash['IPADDR'] = "#{hash['IPADDR']}/#{hash['PREFIX']}"
       hash.delete('PREFIX')
@@ -213,6 +227,23 @@ class Puppet::Provider::L23_stored_config_centos6 < Puppet::Provider::L23_stored
     rv
   end
 
+  def self.mangle__routes(data)
+    rv = {}
+    data.each_pair do |k,v|
+      gateway = v.match(/via ((?:[0-9]{1,3}\.){3}[0-9]{1,3}) /)[1]
+      route_params = { 'destination' => k ,
+                       'gateway'     => gateway
+                     }
+      if v.include? 'metric'
+        metric = v.match(/metric (\d+)/)[1]
+        route_params['metric'] = metric
+      end
+      name = L23network.get_route_resource_name(k, metric)
+      rv[name] = route_params
+    end
+    return rv
+  end
+
   ###
   # Hash to file
 
@@ -265,6 +296,21 @@ class Puppet::Provider::L23_stored_config_centos6 < Puppet::Provider::L23_stored
       pairs['DEVICETYPE'] = 'ovs'
     end
 
+    if pairs['ROUTES']
+      route_filename = "#{self.script_directory}/route-#{provider.name}"
+      route_content = ""
+      pairs['ROUTES'].each do |route|
+        route_content << "#{route}\n"
+      end
+      self.write_file(route_filename, route_content)
+      pairs.delete('ROUTES')
+    end
+
+    # Delete default gateway from global network file
+    if pairs['GATEWAY']
+      self.remove_line_from_file('/etc/sysconfig/network', /GATEWAY.*/)
+    end
+
     pairs.each_pair do |key, val|
       content << "#{key}=#{val}" if ! val.nil?
     end
@@ -272,6 +318,21 @@ class Puppet::Provider::L23_stored_config_centos6 < Puppet::Provider::L23_stored
     debug("format_file('#{filename}')::content: #{content.inspect}")
     content << ''
     content.join("\n")
+  end
+
+  def self.read_file(file)
+    File.read file
+  end
+
+  def self.write_file(file, content)
+    File.open(file, 'w') do |fp|
+      fp.write content
+    end
+  end
+
+  def self.remove_line_from_file(file, remove)
+    content = self.read_file(file).split("\n").reject { |line| remove === line }.join("\n") + "\n"
+    self.write_file file, content
   end
 
   def self.unmangle_properties(provider, props)
@@ -328,6 +389,18 @@ class Puppet::Provider::L23_stored_config_centos6 < Puppet::Provider::L23_stored
       rv = "#{section_key} #{provider.name} #{rv};"
     end
     return "\"#{rv}\""
+  end
+
+  def self.unmangle__routes(provider, val)
+    # should generate set of lines:
+    # "10.109.55.0/24 via 192.168.1.54  dev br-storage"
+    return [] if ['', 'absent'].include? val.to_s
+    rv = []
+    val.each_pair do |name, route|
+      metric = (route['metric'].nil?  ?  ''  :  " metric #{route['metric']}")
+      rv << "#{route['destination']} via #{route['gateway']}#{metric} dev #{provider.name}"
+    end
+    return rv
   end
 
 end

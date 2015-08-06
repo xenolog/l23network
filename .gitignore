@@ -6,6 +6,7 @@
 .bundle
 .config
 *.lock
+*.diff
 coverage
 InstalledFiles
 lib/bundler/man
