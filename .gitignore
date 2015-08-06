@@ -11,6 +11,7 @@ InstalledFiles
 lib/bundler/man
 pkg
 rdoc
+spec/fixtures
 spec/reports
 test/tmp
 test/version_tmp
