@@ -264,12 +264,22 @@ Puppet::Parser::Functions::newfunction(:generate_network_config, :type => :rvalu
 
       next if action == :noop
 
-      #debug("TXX: '#{t[:name]}' =>  '#{t.to_yaml.gsub('!ruby/sym ',':')}'.")
+      #debug("TXX: '#{t[:name]}' =>  '#{t.to_yaml.gsub('!ruby/sym ','')}'.")
       trans = L23network.sanitize_transformation(t, default_provider)
-      #debug("TTT: '#{trans[:name]}' =>  '#{trans.to_yaml.gsub('!ruby/sym ',':')}'.")
+      #debug("TTT: '#{trans[:name]}' =>  '#{trans.to_yaml.gsub('!ruby/sym ','')}'.")
 
       if !ports_properties[trans[:name].to_sym()].nil?
         trans.merge! ports_properties[trans[:name].to_sym()]
+      end
+
+      if trans.has_key?(:mtu) && !trans[:name].nil? && trans[:name] != 'unnamed'
+        # MTU should be adjust to phys_dev if it possible
+        devices = L23network.get_phys_dev_by_transformation(trans[:name], lookupvar('l3_fqdn_hostname'))
+        if !devices.nil? && devices[0] != trans[:name]
+          if trans[:mtu].nil?
+            trans[:mtu] = L23network.get_property_for_transformation('MTU', devices[0], lookupvar('l3_fqdn_hostname'))
+          end
+        end
       end
 
       # add default delay for bonds. 45 sec. for LACP bonds and 15 sec for another.
