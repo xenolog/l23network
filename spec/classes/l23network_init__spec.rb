@@ -2,8 +2,7 @@ require 'spec_helper'
 
 describe 'l23network', :type => :class do
 
-  context 'default init of l23network module' do
-#    let(:title) { 'empty network scheme' }
+  context 'default init of l23network module(Ubuntu)' do
     let(:facts) { {
       :osfamily => 'Debian',
       :operatingsystem => 'Ubuntu',
@@ -16,20 +15,64 @@ describe 'l23network', :type => :class do
       puppet_debug_override()
     end
 
-    it do
-      should compile.with_all_deps
+    it { should compile.with_all_deps }
+    it { should contain_package('bridge-utils').with_ensure('present') }
+    it { should contain_package('ethtool').with_ensure('present') }
+    it { should contain_package('ifenslave').with_ensure('present') }
+    it { should contain_package('vlan').with_ensure('present') }
+    it { should contain_package('network-manager').with_ensure('purged') }
+    it { should contain_anchor('l23network::l2::init').that_comes_before('Anchor[l23network::init]') }
+    it { should contain_anchor('l23network::l2::init').that_requires('Package[vlan]') }
+    it { should contain_anchor('l23network::l2::init').that_requires('Package[ifenslave]') }
+    it { should contain_anchor('l23network::l2::init').that_requires('Package[ethtool]') }
+
+  end
+
+  context 'default init of l23network module(CentOS6)' do
+    let(:facts) { {
+      :operatingsystem => 'CentOS',
+      :kernel => 'Linux',
+      :l23_os => 'centos6',
+      :l3_fqdn_hostname => 'stupid_hostname',
+    } }
+
+    before(:each) do
+      puppet_debug_override()
     end
 
-    it do
-      should contain_package('bridge-utils').with_ensure('present')
-      should contain_package('ethtool').with_ensure('present')
-      should contain_package('ifenslave').with_ensure('present')
-      should contain_package('vlan').with_ensure('present')
-      should contain_anchor('l23network::l2::init').that_comes_before('Anchor[l23network::init]')
-      should contain_anchor('l23network::l2::init').that_requires('Package[vlan]')
-      should contain_anchor('l23network::l2::init').that_requires('Package[ifenslave]')
-      should contain_anchor('l23network::l2::init').that_requires('Package[ethtool]')
+    it { should compile.with_all_deps }
+    it { should contain_package('bridge-utils').with_ensure('present') }
+    it { should contain_package('ethtool').with_ensure('present') }
+    it { should_not contain_package('ifenslave').with_ensure('present') }
+    it { should_not contain_package('vlan').with_ensure('present') }
+    it { should contain_package('NetworkManager').with_ensure('purged') }
+    it { should_not contain_service('NetworkManager').with_ensure('stopped') }
+    it { should contain_anchor('l23network::l2::init').that_comes_before('Anchor[l23network::init]') }
+    it { should contain_anchor('l23network::l2::init').that_requires('Package[ethtool]') }
+
+  end
+
+  context 'default init of l23network module(CentOS7/RHEL7)' do
+    let(:facts) { {
+      :operatingsystem => 'CentOS',
+      :kernel => 'Linux',
+      :l23_os => 'centos7',
+      :l3_fqdn_hostname => 'stupid_hostname',
+    } }
+
+    before(:each) do
+      puppet_debug_override()
     end
+
+    it { should compile.with_all_deps }
+    it { should contain_package('bridge-utils').with_ensure('present') }
+    it { should contain_package('ethtool').with_ensure('present') }
+    it { should_not contain_package('ifenslave').with_ensure('present') }
+    it { should_not contain_package('vlan').with_ensure('present') }
+    it { should contain_package('NetworkManager').with_ensure('purged') }
+    it { should contain_service('NetworkManager').with_ensure('stopped') }
+    it { should contain_anchor('l23network::l2::init').that_comes_before('Anchor[l23network::init]') }
+
   end
 
   context 'init l23network module with enabled OVS' do
@@ -58,11 +101,11 @@ describe 'l23network', :type => :class do
       should contain_package('openvswitch-common').with({
         'name'   => 'openvswitch-switch'
       })
-      should contain_package('bridge-utils').with_ensure('present')
-      should contain_package('ethtool').with_ensure('present')
-      should contain_package('ifenslave').with_ensure('present')
-      should contain_package('vlan').with_ensure('present')
     end
+    it { should contain_package('bridge-utils').with_ensure('present') }
+    it { should contain_package('ethtool').with_ensure('present') }
+    it { should contain_package('ifenslave').with_ensure('present') }
+    it { should contain_package('vlan').with_ensure('present') }
 
     it do
       should contain_service('openvswitch-service').with({
@@ -97,13 +140,13 @@ describe 'l23network', :type => :class do
     it 'without OVS, should not contain packages' do
       should contain_package('bridge-utils').with(
         :ensure => 'absent' )
-      should contain_package('ethtool').with(
-        :ensure => 'absent' )
-      should contain_package('ifenslave').with(
-        :ensure => 'absent' )
-      should contain_package('vlan').with(
-        :ensure => 'absent' )
     end
+    it { should contain_package('ethtool').with(
+        :ensure => 'absent' ) }
+    it { should contain_package('ifenslave').with(
+        :ensure => 'absent' ) }
+    it { should contain_package('vlan').with(
+        :ensure => 'absent' ) }
 
     let(:params) { {
       :ensure_package => 'absent',
@@ -113,16 +156,15 @@ describe 'l23network', :type => :class do
     it 'with OVS, should not contain packages' do
       should contain_package('bridge-utils').with(
         :ensure => 'absent' )
-      should contain_package('ethtool').with(
-        :ensure => 'absent' )
-      should contain_package('ifenslave').with(
-        :ensure => 'absent' )
-      should contain_package('vlan').with(
-        :ensure => 'absent' )
-      should contain_package('openvswitch-common').with(
-        :ensure => 'absent' )
     end
-
+    it { should contain_package('ethtool').with(
+        :ensure => 'absent' ) }
+    it { should contain_package('ifenslave').with(
+        :ensure => 'absent' ) }
+    it { should contain_package('vlan').with(
+        :ensure => 'absent' ) }
+    it { should contain_package('openvswitch-common').with(
+        :ensure => 'absent' ) }
   end
 
 end

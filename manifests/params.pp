@@ -16,9 +16,10 @@ class l23network::params {
       $ovs_datapath_package_name = undef
       $ovs_common_package_name   = 'openvswitch-switch'
       $ovs_kern_module_name      = 'openvswitch'
+      $network_manager_name      = 'network-manager'
       $extra_tools               = 'iputils-arping'
     }
-    /(?i:redhat|centos)/: {
+    /(?i)redhat|centos/: {
       $interfaces_dir            = '/etc/sysconfig/network-scripts'
       $interfaces_file           = undef
       $ovs_service_name          = 'openvswitch'
@@ -30,6 +31,7 @@ class l23network::params {
       $ovs_datapath_package_name = 'kmod-openvswitch'
       $ovs_common_package_name   = 'openvswitch'
       $ovs_kern_module_name      = 'openvswitch'
+      $network_manager_name      = 'NetworkManager'
       $extra_tools               = 'iputils'
     }
     /(?i)darwin/: {
@@ -42,10 +44,11 @@ class l23network::params {
       $lnx_bridge_tools          = undef
       $ovs_datapath_package_name = undef
       $ovs_common_package_name   = undef
-      $ovs_kern_module_name      = unedf
+      $ovs_kern_module_name      = undef
+      $network_manager_name      = undef
     }
     default: {
-      fail("Unsupported OS: ${::l23_os}/${::operatingsystem}")
+      fail("Unsupported OS: ${l23_os}/${::operatingsystem}")
     }
   }
 }
