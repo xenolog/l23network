@@ -66,6 +66,7 @@ class Puppet::Provider::L2_base < Puppet::Provider::InterfaceToolset
         :mtu          => File.open("#{if_dir}/mtu").read.chomp.to_i,
         :provider     => (if_name == 'ovs-system')  ?  'ovs'  :  'lnx' ,
       }
+      port[if_name][:mtu] = :absent if port[if_name][:mtu] == 1500
       # determine port_type for this iface
       peer_ifindex = self.get_iface_peer_index(if_name)
       if !peer_ifindex.nil?
@@ -500,7 +501,11 @@ class Puppet::Provider::L2_base < Puppet::Provider::InterfaceToolset
     # bond_name => { bond options }
     #
     bond = {}
-    bondlist = File.open("/sys/class/net/bonding_masters").read.chomp.split(/\s+/).sort
+    if File.exist?('/sys/class/net/bonding_masters')
+      bondlist = File.open("/sys/class/net/bonding_masters").read.chomp.split(/\s+/).sort
+    else
+      return {}
+    end
     bondlist.each do |bond_name|
       mode = File.open("/sys/class/net/#{bond_name}/bonding/mode").read.split(/\s+/)[0]
       bond[bond_name] = {
@@ -513,6 +518,7 @@ class Puppet::Provider::L2_base < Puppet::Provider::InterfaceToolset
           :downdelay        => File.open("/sys/class/net/#{bond_name}/bonding/downdelay").read.chomp,
         }
       }
+      bond[bond_name][:mtu] = :absent if port[if_name][:mtu] == 1500
       if ['802.3ad', 'balance-xor', 'balance-tlb', 'balance-alb'].include? mode
         xmit_hash_policy = File.open("/sys/class/net/#{bond_name}/bonding/xmit_hash_policy").read.split(/\s+/)[0]
         bond[bond_name][:bond_properties][:xmit_hash_policy] = xmit_hash_policy
@@ -592,12 +598,17 @@ class Puppet::Provider::L2_base < Puppet::Provider::InterfaceToolset
           bond_properties[p_name] = get_value.to_s.gsub('"', '') unless get_value.to_s.empty?
         end
         slaves = []
-        each_port['interfaces'][1].collect{ |int| int[1] }.each do | sl |
-          slaves << ovs_vsctl(['get', 'interface', sl, 'name' ]).join().gsub('"', '')
+        # if bond has two interfaces it is an array
+        if each_port['interfaces'][1].is_a?(Array)
+          each_port['interfaces'][1].collect{ |int| int[1] }.each { | sl | slaves << sl }
+        else
+          # if bond has one interface it is just string
+          slaves << each_port['interfaces'][1]
         end
-        bond_list[bond_name][:slaves] = slaves
+        bond_list[bond_name][:slaves] = slaves.map { |slave| ovs_vsctl(['get', 'interface', slave, 'name' ]).join().gsub('"', '') }
         bond_list[bond_name][:bridge] = ovs_vsctl(['port-to-br', bond_name])[0]
         bond_list[bond_name][:bond_properties] = bond_properties
+        bond_list[bond_name][:onboot] = true
       end
     end
     debug("get_ovs_bonds: OVS bond list #{bond_list}")
