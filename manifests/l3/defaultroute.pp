@@ -18,7 +18,7 @@ define l23network::l3::defaultroute (
             unless  => "netstat -r | grep -q 'default.*${gateway}'",
         }
     }
-    /(?i:redhat|centos|oraclelinux)/: {
+    /(?i:redhat|centos)/: {
         Cfg <| name == $gateway |>
         if ! defined(Cfg[$gateway]) {
           cfg { $gateway:
